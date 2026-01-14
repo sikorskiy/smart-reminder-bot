@@ -38,7 +38,8 @@ class BotHandlers:
         # Buffer for linking messages (explanation + forwarded)
         # {user_id: {'message': str, 'is_forwarded': bool, 'timestamp': float, 'update': Update}}
         self.message_buffer: Dict[int, Dict] = {}
-        self.MESSAGE_LINK_TIMEOUT = 3  # seconds
+        self.MESSAGE_LINK_TIMEOUT = 30  # seconds - time to wait for pair
+        self.MESSAGE_WAIT_BEFORE_PROCESS = 5  # seconds - wait before processing single
 
         # Store last reminder info for callback handling
         # {user_id: {'row': int, ...}}
@@ -142,8 +143,11 @@ Will be stored and reviewed weekly.
 
             if time_diff < self.MESSAGE_LINK_TIMEOUT:
                 # Check if this is a pair (one forwarded, one not)
-                if existing['is_forwarded'] != is_forwarded:
+                if existing['is_forwarded'] != is_forwarded and not existing.get('processed'):
                     # This is a pair!
+                    # Mark existing as processed so it won't be processed again
+                    self.message_buffer[user_id]['processed'] = True
+
                     if is_forwarded:
                         # Current is forwarded, existing is explanation
                         await self._process_pair(
@@ -172,17 +176,23 @@ Will be stored and reviewed weekly.
             'is_forwarded': is_forwarded,
             'timestamp': current_time,
             'update': update,
-            'forward_author': self._get_forward_author(message) if is_forwarded else ''
+            'forward_author': self._get_forward_author(message) if is_forwarded else '',
+            'processed': False
         }
 
-        # Wait for potential second message
-        await asyncio.sleep(self.MESSAGE_LINK_TIMEOUT)
+        # Wait a short time for potential second message
+        await asyncio.sleep(self.MESSAGE_WAIT_BEFORE_PROCESS)
 
         # Check if our message was consumed by pair processing
         if user_id not in self.message_buffer:
             return
 
-        # Check if a newer message arrived
+        # Check if marked as processed (by pair handler)
+        if self.message_buffer[user_id].get('processed'):
+            del self.message_buffer[user_id]
+            return
+
+        # Check if a newer message arrived (means we're the old one in a pair)
         if self.message_buffer[user_id]['timestamp'] > current_time:
             return
 
