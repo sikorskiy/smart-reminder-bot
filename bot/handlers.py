@@ -38,8 +38,8 @@ class BotHandlers:
         # Buffer for linking messages (explanation + forwarded)
         # {user_id: {'message': str, 'is_forwarded': bool, 'timestamp': float, 'update': Update}}
         self.message_buffer: Dict[int, Dict] = {}
-        self.MESSAGE_LINK_TIMEOUT = 30  # seconds - time to wait for pair
-        self.MESSAGE_WAIT_BEFORE_PROCESS = 5  # seconds - wait before processing single
+        self.MESSAGE_LINK_TIMEOUT = 60  # seconds - time to wait for pair
+        self.MESSAGE_WAIT_BEFORE_PROCESS = 10  # seconds - wait before processing single
 
         # Store last reminder info for callback handling
         # {user_id: {'row': int, ...}}
