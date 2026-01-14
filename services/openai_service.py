@@ -74,13 +74,19 @@ RULES FOR DATE/TIME CALCULATION:
    - "за день до встречи в пятницу" = Thursday (day before Friday)
 
 5. NO TIME SPECIFIED:
-   - If message has NO time/date info, return datetime: null
-   - Examples: "купить молоко", "позвонить маме" without time = datetime: null
+   - If message has NO time/date info at all, return datetime: null
+   - Examples: "купить молоко", "позвонить маме" without ANY time reference = datetime: null
 
-6. DEFAULT TIME:
-   - If date specified but no time: use 09:00 as default
-   - "завтра" without time = tomorrow at 09:00
-   - "в пятницу" without time = Friday at 09:00
+6. DEFAULT TIME RULES:
+   - "сегодня" without specific time = current time + 1 hour
+   - "завтра" without specific time = tomorrow at 09:00
+   - "в пятницу" without specific time = Friday at 09:00
+   - Any day reference without time = that day at 09:00
+
+7. VAGUE TIME REFERENCES = +1 HOUR:
+   - If user says "сегодня", "скоро", "позже", "потом" without exact time = current time + 1 hour
+   - "напомни сегодня поспать" = current time + 1 hour
+   - "напомни позже про звонок" = current time + 1 hour
 
 CRITICAL: Never return a past date/time. Always calculate relative to {current_time_str}.
 
