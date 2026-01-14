@@ -39,7 +39,8 @@ class BotHandlers:
         # {user_id: {'message': str, 'is_forwarded': bool, 'timestamp': float, 'update': Update, 'task': Task}}
         self.message_buffer: Dict[int, Dict] = {}
         self.MESSAGE_LINK_TIMEOUT = 60  # seconds - time window for pairing
-        self.MESSAGE_WAIT_BEFORE_PROCESS = 30  # seconds - wait before processing single
+        self.WAIT_FOR_FORWARDED = 15  # seconds - wait for forwarded after explanation
+        self.WAIT_FOR_EXPLANATION = 5  # seconds - wait for explanation after forwarded (rare case)
 
         # Pending processing tasks
         self.pending_tasks: Dict[int, asyncio.Task] = {}
@@ -189,15 +190,18 @@ Will be stored and reviewed weekly.
         }
 
         # Schedule delayed processing (non-blocking)
+        # Wait longer for forwarded message if this is explanation, shorter otherwise
+        wait_time = self.WAIT_FOR_FORWARDED if not is_forwarded else self.WAIT_FOR_EXPLANATION
+
         task = asyncio.create_task(
-            self._delayed_process_single(user_id, current_time)
+            self._delayed_process_single(user_id, current_time, wait_time)
         )
         self.pending_tasks[user_id] = task
 
-    async def _delayed_process_single(self, user_id: int, original_timestamp: float):
+    async def _delayed_process_single(self, user_id: int, original_timestamp: float, wait_time: float):
         """Process single message after delay if not paired."""
         try:
-            await asyncio.sleep(self.MESSAGE_WAIT_BEFORE_PROCESS)
+            await asyncio.sleep(wait_time)
 
             # Check if message still in buffer and not replaced
             if user_id not in self.message_buffer:
