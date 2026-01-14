@@ -250,12 +250,12 @@ Will be stored and reviewed weekly.
         processing_msg = await update.message.reply_text("Transcribing voice message...")
 
         try:
-            # Get file URL
-            file_info = await context.bot.get_file(voice.file_id)
-            file_url = file_info.file_path
+            # Download voice file directly using Telegram API
+            file = await context.bot.get_file(voice.file_id)
+            audio_bytes = await file.download_as_bytearray()
 
             # Transcribe
-            text = await self.openai.download_and_transcribe(file_url)
+            text = await self.openai.transcribe_voice(bytes(audio_bytes))
 
             if not text:
                 await processing_msg.edit_text(
