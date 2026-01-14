@@ -36,10 +36,13 @@ class BotHandlers:
         self.timezone = timezone
 
         # Buffer for linking messages (explanation + forwarded)
-        # {user_id: {'message': str, 'is_forwarded': bool, 'timestamp': float, 'update': Update}}
+        # {user_id: {'message': str, 'is_forwarded': bool, 'timestamp': float, 'update': Update, 'task': Task}}
         self.message_buffer: Dict[int, Dict] = {}
-        self.MESSAGE_LINK_TIMEOUT = 60  # seconds - time to wait for pair
-        self.MESSAGE_WAIT_BEFORE_PROCESS = 20  # seconds - wait before processing single
+        self.MESSAGE_LINK_TIMEOUT = 60  # seconds - time window for pairing
+        self.MESSAGE_WAIT_BEFORE_PROCESS = 30  # seconds - wait before processing single
+
+        # Pending processing tasks
+        self.pending_tasks: Dict[int, asyncio.Task] = {}
 
         # Store last reminder info for callback handling
         # {user_id: {'row': int, ...}}
@@ -115,9 +118,9 @@ Will be stored and reviewed weekly.
         Unified handler for all text messages (regular and forwarded).
 
         Logic:
-        1. Save message to buffer
-        2. Wait for potential pair (explanation + forwarded)
-        3. Process as pair or single message
+        1. Check if there's a buffered message that can form a pair
+        2. If pair found - cancel pending task and process pair
+        3. If no pair - save to buffer and schedule delayed processing
         """
         user_id = update.effective_user.id
         message = update.message
@@ -131,9 +134,6 @@ Will be stored and reviewed weekly.
 
         logger.info(f"Message from {user_id}: forwarded={is_forwarded}, text={message_text[:50]}...")
 
-        # Clean old messages from buffer
-        self._cleanup_buffer()
-
         current_time = time.time()
 
         # Check if there's a recent message in buffer (potential pair)
@@ -143,10 +143,13 @@ Will be stored and reviewed weekly.
 
             if time_diff < self.MESSAGE_LINK_TIMEOUT:
                 # Check if this is a pair (one forwarded, one not)
-                if existing['is_forwarded'] != is_forwarded and not existing.get('processed'):
-                    # This is a pair!
-                    # Mark existing as processed so it won't be processed again
-                    self.message_buffer[user_id]['processed'] = True
+                if existing['is_forwarded'] != is_forwarded:
+                    # This is a pair! Cancel pending task
+                    if user_id in self.pending_tasks:
+                        self.pending_tasks[user_id].cancel()
+                        del self.pending_tasks[user_id]
+
+                    logger.info(f"Found message pair for user {user_id}")
 
                     if is_forwarded:
                         # Current is forwarded, existing is explanation
@@ -170,48 +173,68 @@ Will be stored and reviewed weekly.
                     del self.message_buffer[user_id]
                     return
 
-        # Save to buffer and wait for potential pair
+        # Cancel any existing pending task for this user
+        if user_id in self.pending_tasks:
+            self.pending_tasks[user_id].cancel()
+            del self.pending_tasks[user_id]
+
+        # Save to buffer
         self.message_buffer[user_id] = {
             'message': message_text,
             'is_forwarded': is_forwarded,
             'timestamp': current_time,
             'update': update,
-            'forward_author': self._get_forward_author(message) if is_forwarded else '',
-            'processed': False
+            'context': context,
+            'forward_author': self._get_forward_author(message) if is_forwarded else ''
         }
 
-        # Wait a short time for potential second message
-        await asyncio.sleep(self.MESSAGE_WAIT_BEFORE_PROCESS)
+        # Schedule delayed processing (non-blocking)
+        task = asyncio.create_task(
+            self._delayed_process_single(user_id, current_time)
+        )
+        self.pending_tasks[user_id] = task
 
-        # Check if our message was consumed by pair processing
-        if user_id not in self.message_buffer:
-            return
+    async def _delayed_process_single(self, user_id: int, original_timestamp: float):
+        """Process single message after delay if not paired."""
+        try:
+            await asyncio.sleep(self.MESSAGE_WAIT_BEFORE_PROCESS)
 
-        # Check if marked as processed (by pair handler)
-        if self.message_buffer[user_id].get('processed'):
+            # Check if message still in buffer and not replaced
+            if user_id not in self.message_buffer:
+                return
+
+            data = self.message_buffer[user_id]
+            if data['timestamp'] != original_timestamp:
+                # Message was replaced, don't process old one
+                return
+
+            # Remove from buffer and pending tasks
             del self.message_buffer[user_id]
-            return
+            if user_id in self.pending_tasks:
+                del self.pending_tasks[user_id]
 
-        # Check if a newer message arrived (means we're the old one in a pair)
-        if self.message_buffer[user_id]['timestamp'] > current_time:
-            return
+            logger.info(f"Processing single message for user {user_id}")
 
-        # Process as single message
-        data = self.message_buffer.pop(user_id)
+            # Process as single message
+            if data['is_forwarded']:
+                await self._process_single_forwarded(
+                    forwarded_text=data['message'],
+                    forwarded_author=data['forward_author'],
+                    update=data['update'],
+                    context=data['context']
+                )
+            else:
+                await self._process_single_message(
+                    text=data['message'],
+                    update=data['update'],
+                    context=data['context']
+                )
 
-        if data['is_forwarded']:
-            await self._process_single_forwarded(
-                forwarded_text=data['message'],
-                forwarded_author=data['forward_author'],
-                update=data['update'],
-                context=context
-            )
-        else:
-            await self._process_single_message(
-                text=data['message'],
-                update=data['update'],
-                context=context
-            )
+        except asyncio.CancelledError:
+            # Task was cancelled because pair was found
+            logger.info(f"Delayed processing cancelled for user {user_id} (pair found)")
+        except Exception as e:
+            logger.error(f"Error in delayed processing: {e}")
 
     async def handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle voice messages."""
