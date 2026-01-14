@@ -72,6 +72,12 @@ async def send_reminder_notification(reminder: dict):
     global bot_instance
 
     try:
+        # Use user_id from reminder, fallback to config for backwards compatibility
+        chat_id = reminder.get('user_id') or config.TELEGRAM_CHAT_ID
+        if not chat_id:
+            logger.error(f"No chat_id for reminder row {reminder.get('row')}")
+            return
+
         text_parts = [f"<b>Reminder:</b>\n\n{reminder['text']}"]
 
         # Add original message if present
@@ -84,13 +90,13 @@ async def send_reminder_notification(reminder: dict):
         keyboard = Keyboards.reminder_actions(reminder['row'])
 
         await bot_instance.send_message(
-            chat_id=config.TELEGRAM_CHAT_ID,
+            chat_id=chat_id,
             text=message_text,
             parse_mode='HTML',
             reply_markup=keyboard
         )
 
-        logger.info(f"Sent reminder: {reminder['text'][:50]}...")
+        logger.info(f"Sent reminder to {chat_id}: {reminder['text'][:50]}...")
 
     except Exception as e:
         logger.error(f"Error sending reminder: {e}")
@@ -108,6 +114,12 @@ async def check_timeless_reminders():
 
         for reminder in reminders:
             try:
+                # Use user_id from reminder, fallback to config for backwards compatibility
+                chat_id = reminder.get('user_id') or config.TELEGRAM_CHAT_ID
+                if not chat_id:
+                    logger.error(f"No chat_id for timeless reminder row {reminder.get('row')}")
+                    continue
+
                 text_parts = [
                     f"<b>Weekly review:</b>\n\n"
                     f"<b>Task:</b> {reminder['text']}\n\n"
@@ -121,7 +133,7 @@ async def check_timeless_reminders():
                 keyboard = Keyboards.timeless_reminder_actions(reminder['row'])
 
                 await bot_instance.send_message(
-                    chat_id=config.TELEGRAM_CHAT_ID,
+                    chat_id=chat_id,
                     text=message_text,
                     parse_mode='HTML',
                     reply_markup=keyboard

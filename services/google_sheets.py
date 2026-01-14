@@ -18,8 +18,8 @@ class GoogleSheetsService:
     Service for Google Sheets operations.
 
     Table structure:
-    | datetime | text | timezone | sent | status | comment | forward_author |
-    |----------|------|----------|------|--------|---------|----------------|
+    | datetime | text | timezone | sent | status | comment | forward_author | user_id |
+    |----------|------|----------|------|--------|---------|----------------|---------|
     """
 
     COLUMNS = {
@@ -29,7 +29,8 @@ class GoogleSheetsService:
         'sent': 4,
         'status': 5,
         'comment': 6,
-        'forward_author': 7
+        'forward_author': 7,
+        'user_id': 8
     }
 
     def __init__(self, creds_path: str, spreadsheet_name: str, worksheet_name: str = 'reminders'):
@@ -57,7 +58,8 @@ class GoogleSheetsService:
         datetime_str: Optional[str] = None,
         timezone: str = 'Europe/Moscow',
         comment: str = '',
-        forward_author: str = ''
+        forward_author: str = '',
+        user_id: Optional[int] = None
     ) -> Optional[int]:
         """
         Add a new reminder to the sheet.
@@ -68,6 +70,7 @@ class GoogleSheetsService:
             timezone: Timezone string
             comment: Original forwarded message text (if any)
             forward_author: Author of forwarded message (if any)
+            user_id: Telegram user ID who created the reminder
 
         Returns:
             Row number if successful, None otherwise
@@ -80,7 +83,8 @@ class GoogleSheetsService:
                 'FALSE',              # sent
                 '',                   # status
                 comment,              # comment (original forwarded text)
-                forward_author        # forward_author
+                forward_author,       # forward_author
+                str(user_id) if user_id else ''  # user_id
             ]
 
             logger.info(f"Adding reminder: {row}")
@@ -120,7 +124,8 @@ class GoogleSheetsService:
                         'timezone': row.get('timezone', 'Europe/Moscow'),
                         'comment': row.get('comment', ''),
                         'forward_author': row.get('forward_author', ''),
-                        'status': row.get('status', '')
+                        'status': row.get('status', ''),
+                        'user_id': row.get('user_id', '')
                     })
 
             return reminders
@@ -151,7 +156,8 @@ class GoogleSheetsService:
                         'text': row.get('text', ''),
                         'timezone': row.get('timezone', 'Europe/Moscow'),
                         'comment': row.get('comment', ''),
-                        'forward_author': row.get('forward_author', '')
+                        'forward_author': row.get('forward_author', ''),
+                        'user_id': row.get('user_id', '')
                     })
 
             return reminders
@@ -215,7 +221,8 @@ class GoogleSheetsService:
                     'sent': row_values[3] if len(row_values) > 3 else '',
                     'status': row_values[4] if len(row_values) > 4 else '',
                     'comment': row_values[5] if len(row_values) > 5 else '',
-                    'forward_author': row_values[6] if len(row_values) > 6 else ''
+                    'forward_author': row_values[6] if len(row_values) > 6 else '',
+                    'user_id': row_values[7] if len(row_values) > 7 else ''
                 }
             return None
         except Exception as e:

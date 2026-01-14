@@ -284,7 +284,8 @@ Will be stored and reviewed weekly.
             row = self.sheets.add_reminder(
                 text=reminder_info['text'],
                 datetime_str=reminder_info.get('datetime'),
-                timezone=reminder_info.get('timezone', self.timezone)
+                timezone=reminder_info.get('timezone', self.timezone),
+                user_id=user_id
             )
 
             if row:
@@ -410,7 +411,8 @@ Will be stored and reviewed weekly.
         row = self.sheets.add_reminder(
             text=reminder_info['text'],
             datetime_str=reminder_info.get('datetime'),
-            timezone=reminder_info.get('timezone', self.timezone)
+            timezone=reminder_info.get('timezone', self.timezone),
+            user_id=user_id
         )
 
         if row:
@@ -457,7 +459,8 @@ Will be stored and reviewed weekly.
             datetime_str=reminder_info.get('datetime'),
             timezone=reminder_info.get('timezone', self.timezone),
             comment=forwarded_text,
-            forward_author=forwarded_author
+            forward_author=forwarded_author,
+            user_id=user_id
         )
 
         if row:
@@ -499,7 +502,8 @@ Will be stored and reviewed weekly.
             datetime_str=reminder_info.get('datetime'),
             timezone=reminder_info.get('timezone', self.timezone),
             comment=forwarded_text,
-            forward_author=forwarded_author
+            forward_author=forwarded_author,
+            user_id=user_id
         )
 
         if row:
