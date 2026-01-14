@@ -15,7 +15,7 @@ class Keyboards:
         keyboard = [
             [
                 InlineKeyboardButton("Done", callback_data=f"done_{row}"),
-                InlineKeyboardButton("Not done", callback_data=f"notdone_{row}")
+                InlineKeyboardButton("Cancel", callback_data=f"cancel_{row}")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)

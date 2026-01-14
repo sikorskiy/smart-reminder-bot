@@ -320,14 +320,6 @@ Will be stored and reviewed weekly.
                     parse_mode='HTML'
                 )
 
-            elif data.startswith("notdone_"):
-                row = int(data.split("_")[1])
-                self.sheets.update_status(row, "not_done")
-                await query.edit_message_text(
-                    query.message.text + "\n\n<b>Status: Not done</b>",
-                    parse_mode='HTML'
-                )
-
             elif data.startswith("relevant_"):
                 row = int(data.split("_")[1])
                 await query.edit_message_text(
@@ -337,9 +329,9 @@ Will be stored and reviewed weekly.
 
             elif data.startswith("cancel_"):
                 row = int(data.split("_")[1])
-                self.sheets.update_status(row, "canceled")
+                self.sheets.update_status(row, "cancel")
                 await query.edit_message_text(
-                    query.message.text + "\n\n<b>Canceled</b>",
+                    query.message.text + "\n\n<b>Canceled</b>\n<i>This task is marked as no longer relevant. No future reminders will be sent.</i>",
                     parse_mode='HTML'
                 )
 
