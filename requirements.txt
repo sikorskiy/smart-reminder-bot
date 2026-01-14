@@ -1,0 +1,11 @@
+python-dotenv==1.0.0
+python-telegram-bot==20.7
+openai==1.6.1
+gspread==5.12.0
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+apscheduler==3.10.4
+pytz==2023.3
+httpx==0.25.2
+pydub==0.25.1
+requests==2.31.0
