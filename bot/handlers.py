@@ -99,6 +99,16 @@ Will be stored and reviewed weekly.
         """
         await update.message.reply_text(help_text, parse_mode='HTML')
 
+    def _is_forwarded(self, message) -> bool:
+        """Check if message is forwarded (compatible with different library versions)."""
+        # Try forward_origin first (newer versions)
+        if hasattr(message, 'forward_origin') and message.forward_origin:
+            return True
+        # Fallback to forward_date (older versions)
+        if hasattr(message, 'forward_date') and message.forward_date:
+            return True
+        return False
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Unified handler for all text messages (regular and forwarded).
@@ -110,7 +120,7 @@ Will be stored and reviewed weekly.
         """
         user_id = update.effective_user.id
         message = update.message
-        is_forwarded = bool(message.forward_origin)
+        is_forwarded = self._is_forwarded(message)
         message_text = message.text or message.caption or ""
 
         # Check if user is inputting time for a timeless reminder
@@ -470,32 +480,46 @@ Will be stored and reviewed weekly.
 
     def _get_forward_author(self, message) -> str:
         """Extract author info from forwarded message."""
-        origin = getattr(message, 'forward_origin', None)
-        if not origin:
-            return ""
-
         try:
-            # User
-            sender_user = getattr(origin, 'sender_user', None)
-            if sender_user:
-                name = " ".join(filter(None, [sender_user.first_name, sender_user.last_name]))
-                username = f"@{sender_user.username}" if getattr(sender_user, 'username', None) else ""
-                return name or username or str(sender_user.id)
+            # Try new API (forward_origin) first
+            origin = getattr(message, 'forward_origin', None)
+            if origin:
+                # User
+                sender_user = getattr(origin, 'sender_user', None)
+                if sender_user:
+                    name = " ".join(filter(None, [sender_user.first_name, sender_user.last_name]))
+                    username = f"@{sender_user.username}" if getattr(sender_user, 'username', None) else ""
+                    return name or username or str(sender_user.id)
 
-            # Chat
-            sender_chat = getattr(origin, 'sender_chat', None)
-            if sender_chat and getattr(sender_chat, 'title', None):
-                return f"Chat: {sender_chat.title}"
+                # Chat
+                sender_chat = getattr(origin, 'sender_chat', None)
+                if sender_chat and getattr(sender_chat, 'title', None):
+                    return f"Chat: {sender_chat.title}"
 
-            # Channel
-            channel_chat = getattr(origin, 'chat', None)
-            if channel_chat and getattr(channel_chat, 'title', None):
-                return f"Channel: {channel_chat.title}"
+                # Channel
+                channel_chat = getattr(origin, 'chat', None)
+                if channel_chat and getattr(channel_chat, 'title', None):
+                    return f"Channel: {channel_chat.title}"
 
-            # Hidden user
-            hidden_name = getattr(origin, 'sender_user_name', None)
-            if hidden_name:
-                return hidden_name
+                # Hidden user
+                hidden_name = getattr(origin, 'sender_user_name', None)
+                if hidden_name:
+                    return hidden_name
+
+            # Fallback to old API (forward_from, forward_from_chat)
+            forward_from = getattr(message, 'forward_from', None)
+            if forward_from:
+                name = " ".join(filter(None, [forward_from.first_name, forward_from.last_name]))
+                username = f"@{forward_from.username}" if getattr(forward_from, 'username', None) else ""
+                return name or username or str(forward_from.id)
+
+            forward_from_chat = getattr(message, 'forward_from_chat', None)
+            if forward_from_chat:
+                return forward_from_chat.title or f"Chat {forward_from_chat.id}"
+
+            forward_sender_name = getattr(message, 'forward_sender_name', None)
+            if forward_sender_name:
+                return forward_sender_name
 
         except Exception as e:
             logger.error(f"Error getting forward author: {e}")
